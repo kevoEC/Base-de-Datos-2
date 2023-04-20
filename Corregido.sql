@@ -96,8 +96,8 @@ CREATE TABLE UsoEquipo (
   idCliente tinyint NOT NULL,
   idEquipo tinyint NOT NULL,
   fechaReserva DATETIME NOT NULL,
-  fechaHoraUso DATETIME NOT NULL,
-  minutosUso INT NOT NULL,
+  fechaHoraUso DATETIME,
+  minutosUso tinyint,
   usuarioRegistro VARCHAR(50) NOT NULL DEFAULT suser_name() ,
   fechaRegistro DATE NOT NULL DEFAULT getdate(),
   CONSTRAINT PK_idUso PRIMARY KEY (idUso),
@@ -180,7 +180,7 @@ GO
 ----------INGRESO DE DATOS USO CLIENTE--------------------
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (1, 1, '2022-06-15 08:00:00', '2022-06-15 08:05:00', 13)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (1, 2, '2022-06-15 08:00:00', '2022-06-15 08:05:00', 14)
-INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (1, 1, '2023-04-09 11:30:00', '2023-04-09 11:35:00', 10)
+INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (1, 9, '2023-04-09 11:30:00', '2023-04-09 11:35:00', 10)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (2, 3, '2023-04-10 14:00:00', '2023-04-10 14:15:00', 11)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (3, 1, '2023-04-11 16:30:00', '2023-04-11 16:45:00', 14)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (4, 2, '2023-04-12 07:00:00', '2023-04-12 07:05:00', 13)
@@ -243,6 +243,9 @@ INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUs
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (14, 12, '2023-04-18 14:00:00', '2023-04-18 14:01:00', 12)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (11, 13, '2023-04-18 15:00:00', '2023-04-18 15:13:00', 14)
 INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (9, 16, '2023-04-18 15:00:00', '2023-04-18 15:14:00', 13)
+INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva, fechaHoraUso, minutosUso) VALUES (9, 16, '2023-04-18 15:00:00', '2023-04-18 15:14:00', 13)
+INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva) VALUES (9, 16, '2023-04-18 15:00:00')
+INSERT INTO UsoEquipo(idCliente, idEquipo, fechaReserva) VALUES (9, 18, '2023-04-18 15:30:00')
 GO
 
 ---------------------------------
@@ -266,30 +269,56 @@ INNER JOIN Equipo AS E ON UE.idEquipo = E.idEquipo
 GROUP BY E.nombre, C.nombre, C.apellido, C.cedula, C.telefono, UE.fechaReserva	, UE.fechaHoraUso
 GO
 
-
---VER REGLAS
---SELECT * FROM SYS.sysobjects
---where xtype='R'
-
-----PRUEBA CON ERRORES
---INSERT INTO Cliente(cedula, nombre, apellido,correo, telefono, fechaNacimiento, peso) VALUES ('4004177455', 'Kevin', 'Rosero', 'kevin.rosero@udla.edu.ec','0993884542', '1997-12-16', 89.5)
---INSERT INTO Cliente(cedula, nombre, apellido,correo, telefono, fechaNacimiento, peso) VALUES ('2004177455', 'Kevin', 'Rosero', 'kevin.roseroudla.edu.ec','0993884542', '1997-12-16', 89.5)
-
-
 ---------------------------------
 --/--SCRPIPTS DEBER/
 --Número de préstamos por equipo de aquellos que se pueden usar entre 15 y 55 años de edad.  
 --La consulta deberá devolver tres columnas: "Nombre del equipo", "Rango de edad mínima y máxima" y "Número de Préstamos" 
 
-
+	SELECT E.nombre AS 'Nombre del equipo',
+		   CONCAT(E.edadMInima, ' - ', E.edadMaxima) AS 'Rango de edad mínima y máxima',
+		   COUNT(U.idUso) AS 'Número de Préstamos'
+	FROM Equipo E
+	INNER JOIN UsoEquipo U ON E.idEquipo = U.idEquipo
+	WHERE E.edadMinima <= 55 AND E.edadMaxima >= 15
+	GROUP BY E.nombre, E.edadMinima, E.edadMaxima;
 
 --Nombre y apellido de los clientes (en una sola columna con título "Clientes") que han realizado préstamos de los 3 equipos más comúnmente utilizados.
-
+	SELECT CONCAT(C.nombre, ' ', C.apellido) AS 'Clientes', E.nombre AS 'Equipos mas utilizados'
+	FROM Cliente C
+	INNER JOIN (
+		SELECT TOP 3 idEquipo, COUNT(*) AS num_usos
+		FROM UsoEquipo
+		GROUP BY idEquipo
+		ORDER BY num_usos DESC
+	) AS U ON U.idEquipo = U.idEquipo
+	INNER JOIN Equipo E ON U.idEquipo = E.idEquipo
+	INNER JOIN UsoEquipo UE ON UE.idCliente = C.idCliente AND UE.idEquipo = E.idEquipo
+	ORDER BY E.nombre, CONCAT(C.nombre, ' ', C.apellido);
 
 --Listado de equipos con su estado. Deberá presentarse en el resultado de la consulta las columnas: "Equipo", "Peso", "Estado" 
 --(cuando esté Disponible deberá presentarse la frase "Disponible para préstamo", cuando esté Prestado, deberá presentarse la frase "Prestado a cliente")  
+	SELECT E.nombre AS 'Equipo',
+		   E.pesoMaximo AS 'Peso',
+		   CASE
+			   WHEN U.idUso IS NULL THEN 'Disponible para préstamo'
+			   ELSE 'Prestado a cliente'
+		   END AS 'Estado'
+	FROM Equipo E
+	LEFT JOIN (
+		SELECT idEquipo, MAX(idUso) AS idUso
+		FROM UsoEquipo
+		GROUP BY idEquipo
+	) AS U ON E.idEquipo = U.idEquipo;
 
 --Listado de equipos de aquellos que han sido reservados pero no han sido utilizados durante el presente mes.
+	SELECT E.nombre AS 'Equipo'
+	FROM Equipo E
+	INNER JOIN UsoEquipo U ON E.idEquipo = U.idEquipo
+	WHERE MONTH(U.fechaReserva) = MONTH(GETDATE())
+	AND YEAR(U.fechaReserva) = YEAR(GETDATE())
+	AND U.fechaHoraUso IS NULL;
+
+	select * from UsoEquipo
 
 --Modificación de datos:  Cree una tabla llamada "Entrenadores" basada en los registros de Clientes, 
 --que incluya los 5 primeros clientes ordenados de manera descendente por la edad que están registrados en la tabla.  
@@ -298,6 +327,10 @@ GO
 -- Crear la tabla Entrenadores solo después de que se hayan insertado los primeros 5 clientes
 IF (SELECT COUNT(*) FROM Cliente) >= 5
 BEGIN
+	IF OBJECT_ID('Entrenadores') IS NOT NULL
+	DROP TABLE Entrenadores
+	BEGIN
+
   -- Crear la tabla Entrenadores
   CREATE TABLE Entrenadores (
     idEntrenador tinyint IDENTITY (1,1) NOT NULL,
@@ -305,19 +338,25 @@ BEGIN
     apellido varchar(40) NOT NULL,
     correoEntrenador correo,
     edad tinyint NOT NULL,
-	idCliente tinyint,
     CONSTRAINT PK_idEntrenador PRIMARY KEY (idEntrenador),
-	CONSTRAINT FK_Cliente_Entrenador FOREIGN KEY (idCliente) REFERENCES Cliente(idCliente),
     CONSTRAINT CH_nombreFormatoEntrenador CHECK (nombre LIKE '[A-Z][a-z]%' AND nombre NOT LIKE '%[^a-zA-Z]%'),
     CONSTRAINT CH_apellidoFormatoEntrenador CHECK (apellido LIKE '[A-Z][a-z]%' AND apellido NOT LIKE '%[^a-zA-Z]%'),
     CONSTRAINT CH_correoEntrenadorFormato CHECK (correoEntrenador LIKE '%@gimnasio.ec'),
     CONSTRAINT CH_edadEntrenador CHECK (edad >= 18 AND edad <= 100)
   );
+  --Altera la tabla cliente para agregar el campo y el constraint para la relacion Cliente-Entrenador
+  	ALTER TABLE Entrenadores
+	ADD idCliente tinyint
+	ALTER TABLE Cliente
+	ADD CONSTRAINT FK_Entrenador_Cliente
+	FOREIGN KEY (idCliente)
+	REFERENCES Cliente (idCliente);
 
   -- Insertar datos en la tabla Entrenadores
-  INSERT INTO Entrenadores (nombre, apellido, correoEntrenador, edad)
-  SELECT TOP 5 nombre, apellido, LOWER(apellido) + '@gimnasio.ec', FLOOR(DATEDIFF(DAY, fechaNacimiento, GETDATE()) / 365.25) AS Edad
+  INSERT INTO Entrenadores (nombre, apellido, correoEntrenador, edad, idCliente)
+  SELECT TOP 5 nombre, apellido, LOWER(apellido) + '@gimnasio.ec', FLOOR(DATEDIFF(DAY, fechaNacimiento, GETDATE()) / 365.25) AS Edad, idCliente
   FROM Cliente
+  END
  END
 
  Select nombre, apellido, correoEntrenador, edad from Entrenadores
@@ -327,15 +366,24 @@ BEGIN
 --Genere el script que devuelva el nombre y apellido (en una sola columna) y el tipo de usuario Cliente 
 --o Entrenador de las personas registradas en la base de datos. En el caso que sean Cliente y Entrenador deberá tener esa especificación.  
 SELECT 
-  CASE 
-    WHEN c.idCliente IS NOT NULL THEN 'Cliente' 
-    WHEN e.idEntrenador IS NOT NULL THEN 'Entrenador' 
-  END as Tipo,
-  COALESCE(c.nombre, e.nombre)+''+ COALESCE(c.apellido, e.apellido) as 'Nombre y Apellido',
-  e.correoEntrenador as correoEntrenador,
-  peso
+	c.nombre + ' '+ c.apellido as 'Nombre y Apellido',
+    CASE 
+        WHEN e.idEntrenador IS NOT NULL THEN 'Es cliente y Entrenador'
+        ELSE 'Es cliente'
+    END AS Tipo
 FROM Cliente c
-FULL OUTER JOIN Entrenadores e ON c.idCliente = e.idCliente
-ORDER BY Tipo, nombre, apellido;
+LEFT JOIN Entrenadores e ON c.idCliente = e.idCliente
+ORDER BY c.nombre, c.apellido;
 
+
+--Select * from Entrenadores
+
+
+--VER REGLAS
+--SELECT * FROM SYS.sysobjects
+--where xtype='R'
+
+----PRUEBA CON ERRORES
+--INSERT INTO Cliente(cedula, nombre, apellido,correo, telefono, fechaNacimiento, peso) VALUES ('4004177455', 'Kevin', 'Rosero', 'kevin.rosero@udla.edu.ec','0993884542', '1997-12-16', 89.5)
+--INSERT INTO Cliente(cedula, nombre, apellido,correo, telefono, fechaNacimiento, peso) VALUES ('2004177455', 'Kevin', 'Rosero', 'kevin.roseroudla.edu.ec','0993884542', '1997-12-16', 89.5)
 
